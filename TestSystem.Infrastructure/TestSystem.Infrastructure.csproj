@@ -20,8 +20,4 @@
       <ProjectReference Include="..\TestSystem.Core\TestSystem.Core.csproj" />
     </ItemGroup>
 
-    <ItemGroup>
-      <Folder Include="Repositories\DapperRepositories\" />
-    </ItemGroup>
-
 </Project>
