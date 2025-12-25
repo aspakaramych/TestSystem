@@ -1,3 +1,6 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TestSystem.Core.DTOs.AuthService;
 using TestSystem.Core.Interfaces;
@@ -95,5 +98,19 @@ public class AuthController : ControllerBase
             _logger.LogError(e.Message);
             return StatusCode(500, e.Message);
         }
+    }
+
+    [HttpPost("validate")]
+    [Authorize]
+    public async Task<IActionResult> Validate()
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ??
+                          User.FindFirst(JwtRegisteredClaimNames.Sub);
+        if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var reqUserId))
+        {
+            return Unauthorized();
+        }
+        
+        return Ok(reqUserId);
     }
 }

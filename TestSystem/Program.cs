@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Scalar.AspNetCore;
 using TestSystem.Core.Interfaces;
 using TestSystem.Infrastructure.Data;
 using TestSystem.Infrastructure.Repositories.DapperRepositories;
@@ -26,7 +27,8 @@ builder.Services.AddOpenApi();
 var app = builder.Build();
 
 app.UseHttpsRedirection();
-
+app.MapOpenApi();
+app.MapScalarApiReference();
 app.UseAuthorization();
 
 app.MapControllers();

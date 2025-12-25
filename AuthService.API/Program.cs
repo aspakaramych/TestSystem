@@ -41,18 +41,24 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ClockSkew = TimeSpan.Zero
         };
     });
+builder.Services.AddAuthorization();
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
 
-
+using (app.Services.CreateScope())
+{
+    var dbContext = app.Services.GetRequiredService<ApplicationDbContext>();
+    dbContext.Database.Migrate();
+}
 app.MapOpenApi();
 app.MapScalarApiReference();
 
 app.UseHttpsRedirection();
 
 app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapControllers();
 
