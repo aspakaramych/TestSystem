@@ -12,16 +12,14 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddDbContext<ApplicationDbContext>(opt =>
 {
-    opt.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"));
+    opt.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")).UseSnakeCaseNamingConvention();
 });
 builder.Services.AddScoped<DapperDbContext>();
 builder.Services.AddScoped<IClassRoomsRepository, ClassRoomsRepository>();
+builder.Services.AddScoped<IUserClassroomsRepository, UserClassroomsRepository>();
 builder.Services.AddScoped<IDapperClassRoomsRepository, DapperClassRoomsRepository>();
 builder.Services.AddScoped<IClassRoomService, ClassRoomService>();
-builder.Services.AddAuthorization(opt =>
-{
-    opt.AddPolicy("AdminOnly", policy => policy.RequireClaim("Admin"));
-});
+
 builder.Services.AddOpenApi();
 
 var app = builder.Build();

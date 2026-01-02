@@ -16,6 +16,22 @@ services:
       retries: 10
     networks:
       - app-network
+
+  pgadmin:
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@gmail.com
+      PGADMIN_DEFAULT_PASSWORD: eureihgkdjgjkudhiouhugiofdshcvbkheiuoyo823u948458yhu9uo9fsudor2908yrhudjw
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    ports:
+      - "5050:80"
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - app-network
   
   nginx:
     image: nginx:alpine
@@ -25,8 +41,11 @@ services:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf
     networks:
       - app-network
+    depends_on:
+      - auth-service
+      - project-service
 
-  auth-services:
+  auth-service:
     build: 
       dockerfile: Dockerfile.Auth
     ports:
@@ -40,8 +59,6 @@ services:
   project-service:
     build: 
       dockerfile: DockerFile.Projects
-    ports:
-      - "8081:8081"
     depends_on:
       db:
         condition: service_healthy
@@ -50,6 +67,7 @@ services:
   
 volumes:
   postgres_data:
+  pgadmin-data:
 
 networks:
   app-network:

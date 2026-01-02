@@ -100,7 +100,7 @@ public class AuthController : ControllerBase
         }
     }
 
-    [HttpPost("validate")]
+    [HttpGet("validate")]
     [Authorize]
     public async Task<IActionResult> Validate()
     {
@@ -110,7 +110,29 @@ public class AuthController : ControllerBase
         {
             return Unauthorized();
         }
-        
-        return Ok(reqUserId);
+        Response.Headers.Add("X-User-Id", reqUserId.ToString());
+        return Ok();
+    }
+
+    [HttpGet("validate_admin")]
+    [Authorize]
+    public async Task<IActionResult> ValidateRole()
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ??
+                          User.FindFirst(JwtRegisteredClaimNames.Sub);
+        if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var reqUserId))
+        {
+            return Unauthorized();
+        }
+        var adminClaim = User.FindFirst(ClaimTypes.Role);
+        if (adminClaim == null || adminClaim.Value != "Admin")
+        {
+            return Forbid();
+        }
+        else
+        {
+            Response.Headers.Add("X-User-Id", reqUserId.ToString());
+            return Ok();
+        }
     }
 }

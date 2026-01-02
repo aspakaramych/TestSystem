@@ -5,5 +5,5 @@ namespace TestSystem.Core.Interfaces;
 public interface IClassRoomService
 {
     Task<IEnumerable<ClassRoomResponse>> GetClassRoomsAsync(Guid userId);
-    Task CreateClassRoomAsync(ClassRoomCreateRequest request);
+    Task CreateClassRoomAsync(ClassRoomCreateRequest request, Guid userId);
 }

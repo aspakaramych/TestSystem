@@ -26,123 +26,155 @@ namespace TestSystem.Infrastructure.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
 
                     b.Property<string>("Title")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasColumnName("title");
 
-                    b.HasKey("Id");
+                    b.HasKey("Id")
+                        .HasName("pk_class_rooms");
 
-                    b.ToTable("ClassRooms");
+                    b.ToTable("class_rooms", (string)null);
                 });
 
             modelBuilder.Entity("TestSystem.Core.Entity.Package", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
 
                     b.Property<string>("Code")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasColumnName("code");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
 
                     b.Property<int>("Language")
-                        .HasColumnType("integer");
+                        .HasColumnType("integer")
+                        .HasColumnName("language");
 
                     b.Property<int>("Status")
-                        .HasColumnType("integer");
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
 
                     b.Property<Guid>("TaskId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("task_id");
 
                     b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
 
-                    b.HasKey("Id");
+                    b.HasKey("Id")
+                        .HasName("pk_packages");
 
-                    b.HasIndex("TaskId");
+                    b.HasIndex("TaskId")
+                        .HasDatabaseName("ix_packages_task_id");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_packages_user_id");
 
-                    b.ToTable("Packages");
+                    b.ToTable("packages", (string)null);
                 });
 
             modelBuilder.Entity("TestSystem.Core.Entity.TaskEntity", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
 
                     b.Property<Guid>("ClassRoomId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("class_room_id");
 
                     b.Property<string>("Description")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasColumnName("description");
 
                     b.Property<string>("InputSample")
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasColumnName("input_sample");
 
                     b.Property<string>("OutputSample")
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasColumnName("output_sample");
 
                     b.Property<string>("Tests")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasColumnName("tests");
 
                     b.Property<string>("Title")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasColumnName("title");
 
-                    b.HasKey("Id");
+                    b.HasKey("Id")
+                        .HasName("pk_tasks");
 
-                    b.HasIndex("ClassRoomId");
+                    b.HasIndex("ClassRoomId")
+                        .HasDatabaseName("ix_tasks_class_room_id");
 
-                    b.ToTable("Tasks");
+                    b.ToTable("tasks", (string)null);
                 });
 
             modelBuilder.Entity("TestSystem.Core.Entity.User", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
 
                     b.Property<string>("Email")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasColumnName("email");
 
                     b.Property<string>("HashPassword")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasColumnName("hash_password");
 
                     b.Property<int>("Role")
-                        .HasColumnType("integer");
+                        .HasColumnType("integer")
+                        .HasColumnName("role");
 
-                    b.HasKey("Id");
+                    b.HasKey("Id")
+                        .HasName("pk_users");
 
-                    b.ToTable("Users");
+                    b.ToTable("users", (string)null);
                 });
 
             modelBuilder.Entity("TestSystem.Core.Entity.UserClassRoom", b =>
                 {
                     b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
 
                     b.Property<Guid>("ClassRoomId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("class_room_id");
 
                     b.Property<int>("Role")
-                        .HasColumnType("integer");
+                        .HasColumnType("integer")
+                        .HasColumnName("role");
 
-                    b.HasKey("UserId", "ClassRoomId");
+                    b.HasKey("UserId", "ClassRoomId")
+                        .HasName("pk_user_class_rooms");
 
-                    b.HasIndex("ClassRoomId");
+                    b.HasIndex("ClassRoomId")
+                        .HasDatabaseName("ix_user_class_rooms_class_room_id");
 
-                    b.ToTable("UserClassRooms");
+                    b.ToTable("user_class_rooms", (string)null);
                 });
 
             modelBuilder.Entity("TestSystem.Core.Entity.Package", b =>
@@ -151,13 +183,15 @@ namespace TestSystem.Infrastructure.Migrations
                         .WithMany("Packages")
                         .HasForeignKey("TaskId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_packages_tasks_task_id");
 
                     b.HasOne("TestSystem.Core.Entity.User", "User")
                         .WithMany("Packages")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_packages_users_user_id");
 
                     b.Navigation("Task");
 
@@ -170,7 +204,8 @@ namespace TestSystem.Infrastructure.Migrations
                         .WithMany("Tasks")
                         .HasForeignKey("ClassRoomId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_tasks_class_rooms_class_room_id");
 
                     b.Navigation("ClassRoom");
                 });
@@ -181,13 +216,15 @@ namespace TestSystem.Infrastructure.Migrations
                         .WithMany("UserClassRooms")
                         .HasForeignKey("ClassRoomId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_user_class_rooms_class_rooms_class_room_id");
 
                     b.HasOne("TestSystem.Core.Entity.User", "User")
                         .WithMany("UserClassRooms")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_user_class_rooms_users_user_id");
 
                     b.Navigation("ClassRoom");
 

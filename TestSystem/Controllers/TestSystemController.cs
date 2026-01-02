@@ -9,29 +9,24 @@ namespace TestSystem.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class TestSystemController : ControllerBase
+public class ClassroomsController : ControllerBase
 {
     private readonly IClassRoomService _classRoomService;
 
-    public TestSystemController(IClassRoomService classRoomService)
+    public ClassroomsController(IClassRoomService classRoomService)
     {
         _classRoomService = classRoomService;
     }
     
     [HttpGet("classrooms")]
-    [Authorize]
     public async Task<IActionResult> GetClassRooms()
     {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ??
-                          User.FindFirst(JwtRegisteredClaimNames.Sub);
-        if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var reqUserId))
-        {
-            return Unauthorized();
-        }
+        var userIdHeader = Request.Headers["X-User-Id"].ToString();
+        Guid.TryParse(userIdHeader, out var userId);
 
         try
         {
-            var classRooms = await _classRoomService.GetClassRoomsAsync(reqUserId);
+            var classRooms = await _classRoomService.GetClassRoomsAsync(userId);
             return Ok(classRooms);
         }
         catch (Exception e)
@@ -41,19 +36,14 @@ public class TestSystemController : ControllerBase
     }
 
     [HttpPost("classrooms")]
-    [Authorize("AdminOnly")]
     public async Task<IActionResult> CreateClassRoom([FromBody] ClassRoomCreateRequest request)
     {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ??
-                          User.FindFirst(JwtRegisteredClaimNames.Sub);
-        if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var reqUserId))
-        {
-            return Unauthorized();
-        }
+        var userIdHeader = Request.Headers["X-User-Id"].ToString();
+        Guid.TryParse(userIdHeader, out var userId);
         try
         {
-            await _classRoomService.CreateClassRoomAsync(request);
-            return Ok();
+            await _classRoomService.CreateClassRoomAsync(request, userId);
+            return StatusCode(201);
         }
         catch (Exception e)
         {

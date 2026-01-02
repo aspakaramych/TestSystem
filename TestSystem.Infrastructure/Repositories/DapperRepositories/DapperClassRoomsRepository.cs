@@ -17,9 +17,9 @@ public class DapperClassRoomsRepository : IDapperClassRoomsRepository
     public async Task<IEnumerable<ClassRoom>?> GetClassRoomsAsync(Guid userId)
     {
         var sql = @"select cr.*
-                    from ClassRooms cr
-                    join UserClassRooms ucr on cr.Id = ucr.ClassRoomId
-                    where ucr.UserId = @UserId";
+                    from class_rooms cr
+                    join user_class_rooms ucr on cr.Id = ucr.class_room_id
+                    where ucr.user_id = @UserId";
         using var connection = _context.CreateConnection();
         return await connection.QueryAsync<ClassRoom>(sql, new { UserId = userId });
     }
