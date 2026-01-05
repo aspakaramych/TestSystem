@@ -43,9 +43,16 @@ namespace TestSystem.Infrastructure.Migrations
             modelBuilder.Entity("TestSystem.Core.Entity.Package", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<Guid>("TaskId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("task_id");
 
                     b.Property<string>("Code")
                         .IsRequired()
@@ -64,15 +71,7 @@ namespace TestSystem.Infrastructure.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("status");
 
-                    b.Property<Guid>("TaskId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("task_id");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
-
-                    b.HasKey("Id")
+                    b.HasKey("Id", "UserId", "TaskId")
                         .HasName("pk_packages");
 
                     b.HasIndex("TaskId")

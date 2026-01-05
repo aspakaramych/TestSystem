@@ -5,7 +5,6 @@ namespace TestSystem.Core.Entity;
 
 public class Package
 {
-    [Key]
     public Guid Id { get; set; }
 
     public PackageStatus Status { get; set; }

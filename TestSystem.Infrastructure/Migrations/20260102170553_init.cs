@@ -90,16 +90,16 @@ namespace TestSystem.Infrastructure.Migrations
                 columns: table => new
                 {
                     id = table.Column<Guid>(type: "uuid", nullable: false),
-                    status = table.Column<int>(type: "integer", nullable: false),
-                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     task_id = table.Column<Guid>(type: "uuid", nullable: false),
                     user_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    status = table.Column<int>(type: "integer", nullable: false),
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     language = table.Column<int>(type: "integer", nullable: false),
                     code = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("pk_packages", x => x.id);
+                    table.PrimaryKey("pk_packages", x => new { x.id, x.user_id, x.task_id });
                     table.ForeignKey(
                         name: "fk_packages_tasks_task_id",
                         column: x => x.task_id,

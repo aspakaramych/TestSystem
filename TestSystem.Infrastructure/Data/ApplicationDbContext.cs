@@ -20,6 +20,9 @@ public class ApplicationDbContext : DbContext
     {
         modelBuilder.Entity<UserClassRoom>()
             .HasKey(uc => new { uc.UserId, uc.ClassRoomId });
+
+        modelBuilder.Entity<Package>()
+            .HasKey(p => new { p.Id, p.UserId, p.TaskId });
     
         modelBuilder.Entity<UserClassRoom>()
             .Property(uc => uc.UserId)

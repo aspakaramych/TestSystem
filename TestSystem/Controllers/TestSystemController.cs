@@ -12,10 +12,12 @@ namespace TestSystem.Controllers;
 public class ClassroomsController : ControllerBase
 {
     private readonly IClassRoomService _classRoomService;
+    private readonly ILogger<ClassroomsController> _logger;
 
-    public ClassroomsController(IClassRoomService classRoomService)
+    public ClassroomsController(IClassRoomService classRoomService, ILogger<ClassroomsController> logger)
     {
         _classRoomService = classRoomService;
+        _logger = logger;
     }
     
     [HttpGet("classrooms")]
@@ -49,5 +51,11 @@ public class ClassroomsController : ControllerBase
         {
             return StatusCode(500, e.Message);
         }
+    }
+    [HttpGet("health")]
+    public Task<IActionResult> HealthCheck()
+    {
+        _logger.LogInformation("Health check endpoint called.");
+        return Task.FromResult<IActionResult>(Ok(new { status = "Healthy" }));
     }
 }

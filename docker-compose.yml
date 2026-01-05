@@ -56,9 +56,18 @@ services:
     networks:
       - app-network
   
-  project-service:
+  classrooms-service:
     build: 
       dockerfile: DockerFile.Projects
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  task-service:
+    build: 
+      dockerfile: DockerFile.Tasks
     depends_on:
       db:
         condition: service_healthy
