@@ -3,7 +3,7 @@ WORKDIR /src
 COPY ["TaskService.API/TaskService.API.csproj", "TaskService.API/"]
 COPY ["TestSystem.Core/TestSystem.Core.csproj", "TestSystem.Core/"]
 COPY ["TestSystem.Infrastructure/TestSystem.Infrastructure.csproj", "TestSystem.Infrastructure/"]
-RUN dotnet restore "TestSystem/TestSystem.csproj"
+RUN dotnet restore "TaskService.API/TaskService.API.csproj"
 COPY . .
 WORKDIR "/src/TaskService.API"
 RUN dotnet build "TaskService.API.csproj" -c Release -o /app/build

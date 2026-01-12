@@ -7,16 +7,16 @@ namespace TestSystem.Infrastructure.Services;
 
 public class TaskService : ITaskService
 {
-    private readonly DapperTaskEntityRepository _dapperTaskRepository;
+    private readonly IDapperTaskEntityRepository _dapperTaskRepository;
     private readonly ITaskEntityRepository _taskRepository;
     
-    public TaskService(DapperTaskEntityRepository dapperTaskRepository, ITaskEntityRepository taskRepository)
+    public TaskService(IDapperTaskEntityRepository dapperTaskRepository, ITaskEntityRepository taskRepository)
     {
         _dapperTaskRepository = dapperTaskRepository;
         _taskRepository = taskRepository;
     }
 
-    public async Task<IEnumerable<TaskResponse>> GetPaginatedAsync(Guid classroomId, int page, int pageSize)
+    public async Task<IEnumerable<TaskResponse>> GetPaginatedAsync(Guid classroomId, int page = 1, int pageSize = 10)
     {
         var tasks = await _dapperTaskRepository.GetPaginatedByClassroomIdAsync(classroomId, page, pageSize);
         return tasks.Select(t => new TaskResponse
@@ -46,6 +46,7 @@ public class TaskService : ITaskService
 
     public async Task CreateAsync(Guid classroomId, TaskRequest taskRequest)
     {
+        
         var task = new TaskEntity
         {
             Id = Guid.NewGuid(),

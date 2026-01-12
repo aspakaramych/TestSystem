@@ -43,7 +43,8 @@ services:
       - app-network
     depends_on:
       - auth-service
-      - project-service
+      - classrooms-service
+      - task-service
 
   auth-service:
     build: 
@@ -67,7 +68,7 @@ services:
 
   task-service:
     build: 
-      dockerfile: DockerFile.Tasks
+      dockerfile: Dockerfile.Tasks
     depends_on:
       db:
         condition: service_healthy

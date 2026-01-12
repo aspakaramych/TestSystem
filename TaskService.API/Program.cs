@@ -12,6 +12,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(opt =>
 {
     opt.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")).UseSnakeCaseNamingConvention();
 });
+builder.Services.AddScoped<DapperDbContext>();
 builder.Services.AddScoped<IDapperTaskEntityRepository, DapperTaskEntityRepository>();
 builder.Services.AddScoped<ITaskEntityRepository, TaskEntityRepository>();
 builder.Services.AddScoped<ITaskService, TestSystem.Infrastructure.Services.TaskService>();
