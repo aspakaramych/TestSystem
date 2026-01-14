@@ -1,8 +1,11 @@
+using System.Collections.Concurrent;
 using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
 using TestSystem.Core.Interfaces;
+using TestSystem.Core.KafkaModels;
 using TestSystem.Infrastructure.Data;
 using TestSystem.Infrastructure.KafkaServices;
+using TestSystem.Infrastructure.Repositories.DapperRepositories;
 using TestSystem.Infrastructure.Repositories.EfCoreRepositories;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -12,8 +15,12 @@ builder.Services.AddDbContext<ApplicationDbContext>(opt =>
 {
     opt.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")).UseSnakeCaseNamingConvention();
 });
+builder.Services.AddScoped<DapperDbContext>();
+builder.Services.AddScoped<IDapperPackageRepository, DapperPackageRepository>();
 builder.Services.AddScoped<ITaskEntityRepository, TaskEntityRepository>();
-builder.Services.AddScoped<IPackageRepository, PackageService>();
+builder.Services.AddScoped<IPackageRepository, PackageRepository>();
+builder.Services.AddSingleton<ConcurrentDictionary<string, TaskCompletionSource<CodeExecutionResult>>>();
+builder.Services.AddHostedService<KafkaConsumer>();
 builder.Services.AddSingleton<KafkaProducer>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<KafkaProducer>());
 builder.Services.AddScoped<IPackageService, TestSystem.Infrastructure.Services.PackageService>();

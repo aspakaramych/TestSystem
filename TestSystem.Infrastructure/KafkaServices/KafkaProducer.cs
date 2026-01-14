@@ -15,7 +15,7 @@ public class KafkaProducer : IHostedService, IDisposable
 
     public KafkaProducer(IConfiguration configuration, ILogger<KafkaProducer> logger)
     {
-        _bootstrapServices = configuration["Kafka:BootstrapServers"] ?? "localhost:9082";
+        _bootstrapServices = configuration["Kafka:BootstrapServers"] ?? "localhost:9092";
         _topic = configuration["Kafka:RequestTopic"] ?? "code_executor_request";
         _logger = logger;
     }

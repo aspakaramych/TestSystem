@@ -1,4 +1,4 @@
-namespace TestSystem.Core.KafkaModels;
+namespace CodeExecutionWorker.Models;
 
 public class CodeExecutionRequest
 {

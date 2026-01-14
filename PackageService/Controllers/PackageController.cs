@@ -27,8 +27,15 @@ public class PackageController : ControllerBase
         }
         catch (Exception e)
         {
-            return BadRequest(e.Message);
+            return StatusCode(500, e.Message);
         }
-        
+    }
+    [HttpGet("packages")]
+    public async Task<IActionResult> GetPackages([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+    {
+        var userIdHeader = Request.Headers["X-User-Id"].ToString();
+        Guid.TryParse(userIdHeader, out var userId);
+        var packages = await _packageService.GetPaginatedPackages(page, pageSize, userId);
+        return Ok(packages);
     }
 }

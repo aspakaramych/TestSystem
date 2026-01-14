@@ -12,14 +12,16 @@ public class PackageService : IPackageService
     private readonly IPackageRepository _packageRepository;
     private readonly ILogger<PackageService> _logger;
     private readonly KafkaProducer _kafkaProducer;
+    private readonly IDapperPackageRepository _dapperPackageRepository;
     private readonly ITaskEntityRepository _taskRepository;
 
-    public PackageService(IPackageRepository packageRepository, ILogger<PackageService> logger, KafkaProducer kafkaProducer, ITaskEntityRepository taskRepository)
+    public PackageService(IPackageRepository packageRepository, ILogger<PackageService> logger, KafkaProducer kafkaProducer, ITaskEntityRepository taskRepository, IDapperPackageRepository dapperPackageRepository)
     {
         _packageRepository = packageRepository;
         _logger = logger;
         _kafkaProducer = kafkaProducer;
         _taskRepository = taskRepository;
+        _dapperPackageRepository = dapperPackageRepository;
     }
     
     public async Task CreatePackage(Guid taskId, Guid userId, PackageRequest packageRequest)
@@ -46,8 +48,22 @@ public class PackageService : IPackageService
             Language = packageRequest.Language,
             CorrelationId = Guid.NewGuid().ToString(),
             Tests = task.Tests,
+            PackageId = package.Id
         };
         await _kafkaProducer.ProduceAsync(message: message, topic: null);
         _logger.LogInformation("message sent to Kafka for package {PackageId}", package.Id);
+    }
+
+    public async Task<ICollection<PackageResponse>> GetPaginatedPackages(int page, int pageSize, Guid userId)
+    {
+        var packages = await _dapperPackageRepository.GetPackagesAsync(page, pageSize, userId);
+        return packages.Select(p => new PackageResponse
+        {
+            Id = p.Id,
+            CreatedAt = p.CreatedAt,
+            Status = p.Status.ToString(),
+            TaskTitle = p.Task.Title,
+            Language = p.Language.ToString(),
+        }).ToList();
     }
 }
