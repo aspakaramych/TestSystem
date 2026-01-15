@@ -9,13 +9,11 @@ public class KafkaProducer : IHostedService, IDisposable
     private IProducer<Null, string>? _producer;
     private readonly string _topic;
     private readonly string _bootstrapServices; 
-    private readonly ILogger<KafkaProducer> _logger;
 
     public KafkaProducer(IConfiguration configuration, ILogger<KafkaProducer> logger)
     {
         _topic = configuration["Kafka:ResultTopic"] ?? "code_executor_result";
         _bootstrapServices = configuration["Kafka:BootstrapServers"] ?? "localhost:9092";
-        _logger = logger;
     }
     
     public Task StartAsync(CancellationToken cancellationToken)
@@ -28,14 +26,12 @@ public class KafkaProducer : IHostedService, IDisposable
             MessageSendMaxRetries = 3,
         };
         _producer = new ProducerBuilder<Null, string>(config).Build();
-        _logger.LogInformation("Kafka producer started");
         return Task.CompletedTask;
     }
 
     public Task StopAsync(CancellationToken cancellationToken)
     {
         _producer?.Flush(TimeSpan.FromSeconds(10));
-        _logger.LogInformation("Kafka producer stopped");
         return Task.CompletedTask;
     }
     

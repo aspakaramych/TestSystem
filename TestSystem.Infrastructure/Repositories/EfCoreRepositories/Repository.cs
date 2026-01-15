@@ -21,7 +21,7 @@ public abstract class Repository<T> : IRepository<T> where T : class
 
     public async Task<T?> GetByIdAsync(Guid id)
     {
-        var result = await _dbContext.Set<T>().FindAsync(id);
+        var result = await _dbContext.Set<T>().FirstOrDefaultAsync(t => EF.Property<Guid>(t, "Id") == id);
         return result;
     }
 

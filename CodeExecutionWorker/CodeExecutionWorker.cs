@@ -9,14 +9,12 @@ public class CodeExecutionWorker : BackgroundService
     private readonly IConsumer<Ignore, string> _consumer;
     private readonly KafkaProducer _producer;
     private readonly DockerService _dockerService;
-    private readonly ILogger<CodeExecutionWorker> _logger;
     private readonly string _requestTopic;
 
     public CodeExecutionWorker(IConfiguration configuration, KafkaProducer producer, DockerService dockerService, ILogger<CodeExecutionWorker> logger)
     {
         _producer = producer;
         _dockerService = dockerService;
-        _logger = logger;
         _requestTopic = configuration["Kafka:RequestTopic"] ?? "code_executor_request";
         var config = new ConsumerConfig
         {
@@ -36,7 +34,6 @@ public class CodeExecutionWorker : BackgroundService
     private async Task StartConsumerLoop(CancellationToken stoppingToken)
     {
         _consumer.Subscribe(_requestTopic);
-        _logger.LogInformation("CodeExecutionWorker started and subscribed to topic {Topic}", _requestTopic);
         try
         {
             while (!stoppingToken.IsCancellationRequested)
@@ -56,13 +53,13 @@ public class CodeExecutionWorker : BackgroundService
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex.Message, "Error processing Kafka message");
+                    
                 }
             }
         }
         catch (Exception e)
         {
-            _logger.LogError(e, "Error processing Kafka message");
+            
         }
         finally
         {
@@ -75,7 +72,6 @@ public class CodeExecutionWorker : BackgroundService
         var request = JsonSerializer.Deserialize<CodeExecutionRequest>(json);
         if (request == null) return;
         var result = await _dockerService.ExecuteCodeAsync(request);
-        await _producer.ProduceAsync(result);
-        _logger.LogInformation("CodeExecutionWorker finished");
+        await _producer.ProduceAsync(result);   
     }
 }

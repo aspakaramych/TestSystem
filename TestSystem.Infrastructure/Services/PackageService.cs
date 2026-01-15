@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Microsoft.Extensions.Logging;
 using TestSystem.Core.DTOs.PackageService;
 using TestSystem.Core.Entity;
@@ -14,6 +15,7 @@ public class PackageService : IPackageService
     private readonly KafkaProducer _kafkaProducer;
     private readonly IDapperPackageRepository _dapperPackageRepository;
     private readonly ITaskEntityRepository _taskRepository;
+    private readonly ConcurrentDictionary<string, TaskCompletionSource<CodeExecutionResult>> _callbacks = new();
 
     public PackageService(IPackageRepository packageRepository, ILogger<PackageService> logger, KafkaProducer kafkaProducer, ITaskEntityRepository taskRepository, IDapperPackageRepository dapperPackageRepository)
     {
@@ -26,10 +28,11 @@ public class PackageService : IPackageService
     
     public async Task CreatePackage(Guid taskId, Guid userId, PackageRequest packageRequest)
     {
-        if (Enum.TryParse(packageRequest.Language, out Language language))
+        if (!Enum.TryParse(packageRequest.Language, out Language language))
         {
             throw new ArgumentException("Invalid programming language specified.");
         }
+
         var package = new Package
         {
             Id = Guid.NewGuid(),
@@ -40,18 +43,34 @@ public class PackageService : IPackageService
             Code = packageRequest.Code,
             Language = language
         };
+
         await _packageRepository.AddAsync(package);
+    
         var task = await _taskRepository.GetByIdAsync(taskId);
+        var correlationId = Guid.NewGuid().ToString();
+    
+        var tsc = new TaskCompletionSource<CodeExecutionResult>();
+        _callbacks.TryAdd(correlationId, tsc);
+
         var message = new CodeExecutionRequest
         {
             Code = packageRequest.Code,
             Language = packageRequest.Language,
-            CorrelationId = Guid.NewGuid().ToString(),
+            CorrelationId = correlationId,
             Tests = task.Tests,
             PackageId = package.Id
         };
-        await _kafkaProducer.ProduceAsync(message: message, topic: null);
-        _logger.LogInformation("message sent to Kafka for package {PackageId}", package.Id);
+
+        try 
+        {
+            await _kafkaProducer.ProduceAsync(message: message, topic: null);
+            _logger.LogInformation("message sent to Kafka for package {PackageId} with CorrelationId {CorrId}", package.Id, correlationId);
+        }
+        catch (Exception)
+        {
+            _callbacks.TryRemove(correlationId, out _);
+            throw;
+        }
     }
 
     public async Task<ICollection<PackageResponse>> GetPaginatedPackages(int page, int pageSize, Guid userId)

@@ -9,21 +9,18 @@ using TestSystem.Core.Entity;
 using TestSystem.Core.Interfaces;
 using TestSystem.Core.KafkaModels;
 
-namespace TestSystem.Infrastructure.KafkaServices;
-
 public class KafkaConsumer : BackgroundService
 {
     private readonly string _topic;
     private readonly IConsumer<Ignore, string> _consumer;
     private readonly ConcurrentDictionary<string, TaskCompletionSource<CodeExecutionResult>> _callbacks;
-    private readonly ILogger<KafkaConsumer> _logger;
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly ILogger<KafkaConsumer> _logger;
 
     public KafkaConsumer(IConfiguration configuration, ILogger<KafkaConsumer> logger, ConcurrentDictionary<string, TaskCompletionSource<CodeExecutionResult>> callbacks, IServiceScopeFactory scopeFactory)
     {
         _callbacks = callbacks;
         _scopeFactory = scopeFactory;
-        _logger = logger;
         _topic = configuration["Kafka:ResultTopic"] ?? "code_executor_result";
         var config = new ConsumerConfig
         {
@@ -34,6 +31,7 @@ public class KafkaConsumer : BackgroundService
         };
         
         _consumer = new ConsumerBuilder<Ignore, string>(config).Build();
+        _logger = logger;
     }
     
     protected override Task ExecuteAsync(CancellationToken stoppingToken)
@@ -44,7 +42,6 @@ public class KafkaConsumer : BackgroundService
     private async Task StartConsumerLoop(CancellationToken stoppingToken)
     {
         _consumer.Subscribe(_topic);
-        _logger.LogInformation("Kafka consumer started and subscribed to topic {Topic}", _topic);
 
         try
         {
@@ -59,13 +56,13 @@ public class KafkaConsumer : BackgroundService
                 }
                 catch (ConsumeException e)
                 {
-                    _logger.LogError(e, "Error occured while processing message, {Reason}", e.Error.Reason);
+                    _logger.LogError(e, "Error consuming message");
                 }
             }
         }
         catch (OperationCanceledException)
         {
-            _logger.LogInformation("Kafka consumer is stopping due to cancellation request.");
+           _logger.LogInformation("Consumer loop canceled");
         }
         finally
         {
@@ -78,29 +75,39 @@ public class KafkaConsumer : BackgroundService
         try
         {
             var result = JsonSerializer.Deserialize<CodeExecutionResult>(message.Message.Value);
-            if (result != null && _callbacks.TryRemove(result.CorrelationId, out var tsc))
+            if (result == null) return;
+
+            _logger.LogInformation("Processing result for CorrelationId: {CorrId}", result.CorrelationId);
+
+            using (var scope = _scopeFactory.CreateScope())
             {
-                var packageRepository = _scopeFactory.CreateScope().ServiceProvider.GetRequiredService<IPackageRepository>();
+                var packageRepository = scope.ServiceProvider.GetRequiredService<IPackageRepository>();
                 var package = await packageRepository.GetByIdAsync(result.PackageId);
-                if (result.FailedTests == 0)
+
+                if (package != null)
                 {
-                    package.Status = PackageStatus.Accepted;
+                    package.Status = result.FailedTests == 0 ? PackageStatus.Accepted : PackageStatus.Rejected;
+                    await packageRepository.UpdateAsync(package);
+                    _logger.LogInformation("Package {Id} updated in DB to {Status}", package.Id, package.Status);
                 }
                 else
                 {
-                    package.Status = PackageStatus.Rejected;
+                    _logger.LogWarning("Package {Id} not found in database", result.PackageId);
                 }
-                await packageRepository.UpdateAsync(package);
-                tsc.SetResult(result);
-            }
-            else
-            {
-                _logger.LogInformation("Received unknown correlation ID: {CorrelationId}", result?.CorrelationId);
+
+                if (_callbacks.TryRemove(result.CorrelationId, out var tsc))
+                {
+                    tsc.SetResult(result);
+                }
+                else
+                {
+                    _logger.LogWarning("CorrelationId {Id} not found in active callbacks", result.CorrelationId);
+                }
             }
         }
-        catch (JsonException e)
+        catch (Exception e)
         {
-            _logger.LogError("Failed to deserialize message: {Error}", e.Message);
+            _logger.LogError(e, "Error in ProcessMessage");
         }
     }
 }

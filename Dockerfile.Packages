@@ -1,0 +1,18 @@
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+WORKDIR /src
+COPY ["PackageService/PackageService.csproj", "PackageService/"]
+COPY ["TestSystem.Core/TestSystem.Core.csproj", "TestSystem.Core/"]
+COPY ["TestSystem.Infrastructure/TestSystem.Infrastructure.csproj", "TestSystem.Infrastructure/"]
+RUN dotnet restore "PackageService/PackageService.csproj"
+COPY . .
+WORKDIR "/src/PackageService"
+RUN dotnet build "PackageService.csproj" -c Release -o /app/build
+
+FROM build AS publish
+RUN dotnet publish "PackageService.csproj" -c Release -o /app/publish
+
+FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS final
+WORKDIR /app
+COPY --from=publish /app/publish .
+EXPOSE 8081
+ENTRYPOINT ["dotnet", "PackageService.dll"]
