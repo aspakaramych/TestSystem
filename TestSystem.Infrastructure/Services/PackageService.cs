@@ -3,8 +3,8 @@ using Microsoft.Extensions.Logging;
 using TestSystem.Core.DTOs.PackageService;
 using TestSystem.Core.Entity;
 using TestSystem.Core.Interfaces;
-using TestSystem.Core.KafkaModels;
-using TestSystem.Infrastructure.KafkaServices;
+using TestSystem.Core.RabbitModels;
+using TestSystem.Infrastructure.RabbitMqService;
 
 namespace TestSystem.Infrastructure.Services;
 
@@ -12,18 +12,25 @@ public class PackageService : IPackageService
 {
     private readonly IPackageRepository _packageRepository;
     private readonly ILogger<PackageService> _logger;
-    private readonly KafkaProducer _kafkaProducer;
+    private readonly RabbitMqPublisher _rabbitPublisher;
     private readonly IDapperPackageRepository _dapperPackageRepository;
     private readonly ITaskEntityRepository _taskRepository;
-    private readonly ConcurrentDictionary<string, TaskCompletionSource<CodeExecutionResult>> _callbacks = new();
+    private readonly ConcurrentDictionary<string, TaskCompletionSource<CodeExecutionResult>> _callbacks;
 
-    public PackageService(IPackageRepository packageRepository, ILogger<PackageService> logger, KafkaProducer kafkaProducer, ITaskEntityRepository taskRepository, IDapperPackageRepository dapperPackageRepository)
+    public PackageService(
+        IPackageRepository packageRepository, 
+        ILogger<PackageService> logger, 
+        RabbitMqPublisher rabbitPublisher,
+        ITaskEntityRepository taskRepository, 
+        IDapperPackageRepository dapperPackageRepository,
+        ConcurrentDictionary<string, TaskCompletionSource<CodeExecutionResult>> callbacks) 
     {
         _packageRepository = packageRepository;
         _logger = logger;
-        _kafkaProducer = kafkaProducer;
+        _rabbitPublisher = rabbitPublisher;
         _taskRepository = taskRepository;
         _dapperPackageRepository = dapperPackageRepository;
+        _callbacks = callbacks;
     }
     
     public async Task CreatePackage(Guid taskId, Guid userId, PackageRequest packageRequest)
@@ -63,11 +70,12 @@ public class PackageService : IPackageService
 
         try 
         {
-            await _kafkaProducer.ProduceAsync(message: message, topic: null);
-            _logger.LogInformation("message sent to Kafka for package {PackageId} with CorrelationId {CorrId}", package.Id, correlationId);
+            await _rabbitPublisher.PublishAsync(message); 
+            _logger.LogInformation("Message sent to RabbitMQ for package {PackageId} with CorrelationId {CorrId}", package.Id, correlationId);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "Failed to send message to RabbitMQ");
             _callbacks.TryRemove(correlationId, out _);
             throw;
         }

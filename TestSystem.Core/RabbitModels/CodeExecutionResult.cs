@@ -1,4 +1,4 @@
-namespace TestSystem.Core.KafkaModels;
+namespace TestSystem.Core.RabbitModels;
 
 public class CodeExecutionResult
 {

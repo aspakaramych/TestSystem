@@ -1,5 +1,3 @@
-namespace CodeExecutionWorker.Models;
-
 public class CodeExecutionRequest
 {
     public string Code { get; set; }

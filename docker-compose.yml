@@ -78,11 +78,16 @@ services:
   package-service:
     build:
       dockerfile: Dockerfile.Packages
+    environment:
+      - RabbitMQ__HostName=rabbitmq 
+      - RabbitMQ__RequestQueue=code_execution_requests
+      - RabbitMQ__ResultQueue=code_execution_results
     depends_on:
-      kafka:
-        condition: service_started
+      rabbitmq:
+        condition: service_healthy 
       db:
         condition: service_healthy
+    restart: on-failure
     networks:
       - app-network
 
@@ -91,26 +96,34 @@ services:
       dockerfile: Dockerfile.Worker
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock  
-    depends_on:
-      kafka:
-        condition: service_started
-    networks:
-      - app-network
-     
-  
-  kafka:
-    image: confluentinc/confluent-local:7.4.1
-    container_name: kafka
-    ports:
-      - "9092:9092"
-      - "9101:9101"
     environment:
-      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092"
-      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:29093"
-      KAFKA_LISTENERS: "PLAINTEXT://kafka:29092,CONTROLLER://kafka:29093,PLAINTEXT_HOST://0.0.0.0:9092"
+      - RabbitMQ__HostName=rabbitmq 
+      - RabbitMQ__RequestQueue=code_execution_requests
+      - RabbitMQ__ResultQueue=code_execution_results
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    restart: on-failure
     networks:
       - app-network
-
+  
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: rabbitmq
+    hostname: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672" 
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s   
+      timeout: 5s
+      retries: 5
+    networks:       
+      - app-network
 
 volumes:
   postgres_data:
