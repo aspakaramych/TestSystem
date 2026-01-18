@@ -33,4 +33,6 @@ public enum Language
     CSharp,
     Python,
     Java,
+    C,
+    Go,
 }

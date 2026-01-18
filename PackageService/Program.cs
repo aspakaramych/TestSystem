@@ -4,6 +4,7 @@ using Scalar.AspNetCore;
 using TestSystem.Core.Interfaces;
 using TestSystem.Core.RabbitModels; // Проверь namespace
 using TestSystem.Infrastructure.Data;
+using TestSystem.Infrastructure.Grafana;
 using TestSystem.Infrastructure.Repositories.DapperRepositories;
 using TestSystem.Infrastructure.Repositories.EfCoreRepositories;
 using TestSystem.Infrastructure.RabbitMqService; // Твои новые Rabbit-сервисы
@@ -27,7 +28,7 @@ builder.Services.AddSingleton<ConcurrentDictionary<string, TaskCompletionSource<
 builder.Services.AddSingleton<RabbitMqPublisher>();
 
 builder.Services.AddHostedService(sp => sp.GetRequiredService<RabbitMqPublisher>());
-
+builder.Services.AddGlobalMetrics("PackageServiceAPI");
 
 builder.Services.AddHostedService<RabbitMqConsumer>();
 
@@ -42,6 +43,7 @@ app.MapOpenApi();
 app.MapScalarApiReference();
 
 app.UseAuthorization();
+app.UseGlobalMetrics();
 app.MapControllers();
 
 app.Run();

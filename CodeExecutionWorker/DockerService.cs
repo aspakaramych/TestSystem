@@ -1,7 +1,6 @@
 using System.Formats.Tar;
 using System.Text;
 using System.Text.Json;
-using CodeExecutionWorker;
 using Docker.DotNet;
 using Docker.DotNet.Models;
 
@@ -45,7 +44,10 @@ public class DockerService
             case "csharp":
                 dockerImage = "mcr.microsoft.com/dotnet/sdk:10.0";
                 codeFileName = "Program.cs";
-                executionCommand = $"dotnet run {containerWorkingDir}/{codeFileName}";
+                executionCommand = $"dotnet new console --force --name app > /dev/null 2>&1 && " +
+                                   $"mv {containerWorkingDir}/{codeFileName} app/Program.cs && " +
+                                   $"dotnet build app/app.csproj -c Release --no-restore /p:Namespace=System /p:ImplicitUsings=enable > /dev/null 2>&1 && " +
+                                   $"dotnet app/bin/Release/net10.0/app.dll"; 
                 break;
             case "java":
                 dockerImage = "amazoncorretto:17-alpine";
@@ -55,7 +57,17 @@ public class DockerService
             case "cpp":
                 dockerImage = "gcc:latest";
                 codeFileName = "main.cpp";
-                executionCommand = $"gcc {containerWorkingDir}/{codeFileName} -o main && main";
+                executionCommand = $"g++ {containerWorkingDir}/{codeFileName} -o main && ./main";
+                break;
+            case "c":
+                dockerImage = "gcc:latest";
+                codeFileName = "main.c";
+                executionCommand = $"gcc {containerWorkingDir}/{codeFileName} -o main && ./main";
+                break;
+            case "go":
+                dockerImage = "golang:latest";
+                codeFileName = "main.go";
+                executionCommand = $"gofmt -w {containerWorkingDir}/{codeFileName} && go run {containerWorkingDir}/{codeFileName}";
                 break;
         }
 
@@ -71,7 +83,7 @@ public class DockerService
             HostConfig = new HostConfig
             {
                 NetworkMode = "none",
-                Memory = 256 * 256 * 1024,
+                Memory = 256 * 1024 * 1024,
                 CPUQuota = 10000,
             },
             Cmd = new List<string> { "tail", "-f", "/dev/null" }
@@ -105,6 +117,11 @@ public class DockerService
                     var inputBytes = Encoding.UTF8.GetBytes(test.In + "\n");
                     await stream.WriteAsync(inputBytes, 0, inputBytes.Length, CancellationToken.None);
                     var (stdout, stderr) = await stream.ReadOutputToEndAsync(CancellationToken.None);
+                    if (stderr != null)
+                    {
+                        _logger.LogInformation("Stderr: {stderr}", stderr);
+                        _logger.LogInformation("Stdout: {stdout}", stdout);;
+                    }
                     if (string.IsNullOrWhiteSpace(stderr) && stdout.Trim() == test.Out.Trim())
                     {
                         result.PassedTests++;

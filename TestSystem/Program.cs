@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
 using TestSystem.Core.Interfaces;
 using TestSystem.Infrastructure.Data;
+using TestSystem.Infrastructure.Grafana;
 using TestSystem.Infrastructure.Repositories.DapperRepositories;
 using TestSystem.Infrastructure.Repositories.EfCoreRepositories;
 using TestSystem.Infrastructure.Services;
@@ -21,6 +22,7 @@ builder.Services.AddScoped<IDapperClassRoomsRepository, DapperClassRoomsReposito
 builder.Services.AddScoped<IClassRoomService, ClassRoomService>();
 builder.Services.AddLogging();
 builder.Services.AddOpenApi();
+builder.Services.AddGlobalMetrics("ClassroomAPI");
 
 var app = builder.Build();
 
@@ -28,7 +30,7 @@ app.UseHttpsRedirection();
 app.MapOpenApi();
 app.MapScalarApiReference();
 app.UseAuthorization();
-
+app.UseGlobalMetrics();
 app.MapControllers();
 
 app.Run();

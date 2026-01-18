@@ -6,6 +6,7 @@ using Scalar.AspNetCore;
 using TestSystem.Core.Configuration;
 using TestSystem.Core.Interfaces;
 using TestSystem.Infrastructure.Data;
+using TestSystem.Infrastructure.Grafana;
 using TestSystem.Infrastructure.Repositories.EfCoreRepositories;
 using TestSystem.Infrastructure.Utils;
 
@@ -41,6 +42,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ClockSkew = TimeSpan.Zero
         };
     });
+builder.Services.AddGlobalMetrics("AuthServiceAPI");
 builder.Services.AddAuthorization();
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
@@ -59,7 +61,7 @@ app.UseHttpsRedirection();
 
 app.UseAuthentication();
 app.UseAuthorization();
-
+app.UseGlobalMetrics();
 app.MapControllers();
 
 app.Run();

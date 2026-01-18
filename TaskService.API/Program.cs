@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using TestSystem.Core.Interfaces;
 using TestSystem.Infrastructure.Data;
+using TestSystem.Infrastructure.Grafana;
 using TestSystem.Infrastructure.Repositories.DapperRepositories;
 using TestSystem.Infrastructure.Repositories.EfCoreRepositories;
 using TestSystem.Infrastructure.Services;
@@ -18,6 +19,7 @@ builder.Services.AddScoped<ITaskEntityRepository, TaskEntityRepository>();
 builder.Services.AddScoped<ITaskService, TestSystem.Infrastructure.Services.TaskService>();
 builder.Services.AddLogging();
 builder.Services.AddOpenApi();
+builder.Services.AddGlobalMetrics("TaskServiceAPI");
 
 var app = builder.Build();
 
@@ -27,7 +29,7 @@ app.MapOpenApi();
 app.UseHttpsRedirection();
 
 app.UseAuthorization();
-
+app.UseGlobalMetrics();
 app.MapControllers();
 
 app.Run();
