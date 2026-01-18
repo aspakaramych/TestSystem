@@ -1,0 +1,15 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  - job_name: "dotnet-services"
+    static_configs:
+      - targets:
+          - "auth-service:8080"
+          - "classrooms-service:8080"
+          - "task-service:8080"
+          - "package-service:8080"
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
