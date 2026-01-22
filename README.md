@@ -91,6 +91,8 @@ docker-compose up --build -d
 **Parameters:** `classroomId` (path), `id` (path).
 **Access:** `User` | **Responses:** `200 OK`.
 
+---
+
 ## Package Service
 
 ### POST `/api/Package/task/{taskId}/send/code`
