@@ -10,6 +10,7 @@ public class DockerService
 {
     private readonly DockerClient _dockerClient;
     private readonly ILogger<DockerService> _logger;
+    private readonly SemaphoreSlim _testSemaphore = new SemaphoreSlim(5);
 
     public DockerService(ILogger<DockerService> logger)
     {
@@ -17,63 +18,19 @@ public class DockerService
         _dockerClient = new DockerClientConfiguration(new Uri("unix:///var/run/docker.sock")).CreateClient();
     }
 
-    public async Task<CodeExecutionResult> ExecuteCodeAsync(CodeExecutionRequest request)
+    public async Task<CodeExecutionResult> ExecuteCodeAsync(CodeExecutionRequest request, CancellationToken ct = default)
     {
-        _logger.LogInformation(request.Tests);
+        _logger.LogInformation("Processing request {CorrelationId}", request.CorrelationId);
+        
         var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-        var tests = JsonSerializer.Deserialize<List<TestModel>>(request.Tests, options);
-        _logger.LogInformation($"{tests[0].Out}");
-        string dockerImage = "";
-        string codeFileName = "";
-        string executionCommand = "";
-        string containerWorkingDir = "/app";
-        var result = new CodeExecutionResult 
-        { 
-            CorrelationId = request.CorrelationId, 
-            PackageId = request.PackageId,
-            PassedTests = 0,
-            FailedTests = 0,
-        };
-        switch (request.Language.ToLower())
-        {
-            case "python":
-                dockerImage = "python:3.9-slim-buster";
-                codeFileName = "main.py";
-                executionCommand = $"python {containerWorkingDir}/{codeFileName}";
-                break;
-            case "csharp":
-                dockerImage = "mcr.microsoft.com/dotnet/sdk:10.0";
-                codeFileName = "Program.cs";
-                executionCommand = $"dotnet new console --force --name app > /dev/null 2>&1 && " +
-                                   $"mv {containerWorkingDir}/{codeFileName} app/Program.cs && " +
-                                   $"dotnet build app/app.csproj -c Release --no-restore /p:Namespace=System /p:ImplicitUsings=enable > /dev/null 2>&1 && " +
-                                   $"dotnet app/bin/Release/net10.0/app.dll"; 
-                break;
-            case "java":
-                dockerImage = "amazoncorretto:17-alpine";
-                codeFileName = "app.java";
-                executionCommand = $"cd {containerWorkingDir} && javac {codeFileName} && java app";
-                break;
-            case "cpp":
-                dockerImage = "gcc:latest";
-                codeFileName = "main.cpp";
-                executionCommand = $"g++ {containerWorkingDir}/{codeFileName} -o main && ./main";
-                break;
-            case "c":
-                dockerImage = "gcc:latest";
-                codeFileName = "main.c";
-                executionCommand = $"gcc {containerWorkingDir}/{codeFileName} -o main && ./main";
-                break;
-            case "go":
-                dockerImage = "golang:latest";
-                codeFileName = "main.go";
-                executionCommand = $"gofmt -w {containerWorkingDir}/{codeFileName} && go run {containerWorkingDir}/{codeFileName}";
-                break;
-        }
+        var tests = JsonSerializer.Deserialize<List<TestModel>>(request.Tests, options) ?? new();
+        _logger.LogInformation(tests.Count.ToString());
+        var (dockerImage, codeFileName, executionCommand) = GetLanguageSettings(request.Language);
+        const string containerWorkingDir = "/app";
 
-        await EnsureDockerImageExist(dockerImage);
+        await EnsureDockerImageExist(dockerImage, ct);
 
-        var createContainerParametrs = new CreateContainerParameters
+        var createParams = new CreateContainerParameters
         {
             Image = dockerImage,
             AttachStderr = true,
@@ -88,91 +45,111 @@ public class DockerService
             },
             Cmd = new List<string> { "tail", "-f", "/dev/null" }
         };
-        
-        var container = await _dockerClient.Containers.CreateContainerAsync(createContainerParametrs);
+
+        var container = await _dockerClient.Containers.CreateContainerAsync(createParams, ct);
         string containerId = container.ID;
-        _logger.LogInformation("Creating container {containerId}", containerId);
 
         try
         {
-            await _dockerClient.Containers.StartContainerAsync(containerId, null);
+            await _dockerClient.Containers.StartContainerAsync(containerId, null, ct);
             using (var tarStream = CreateTar(codeFileName, request.Code))
             {
                 await _dockerClient.Containers.ExtractArchiveToContainerAsync(containerId,
-                    new ContainerPathStatParameters { Path = containerWorkingDir }, tarStream);
+                    new ContainerPathStatParameters { Path = containerWorkingDir }, tarStream, ct);
             }
 
-            foreach (var test in tests)
+            var testTasks = tests.Select(test => RunSingleTestWithSemaphoreAsync(containerId, executionCommand, test, ct));
+            
+            var results = await Task.WhenAll(testTasks);
+
+            return new CodeExecutionResult
             {
-                var execParams = new ContainerExecCreateParameters
-                {
-                    AttachStdin = true,
-                    AttachStdout = true,
-                    AttachStderr = true,
-                    Cmd = new List<string> { "sh", "-c", executionCommand }
-                };
-                var exec = await _dockerClient.Exec.ExecCreateContainerAsync(containerId, execParams);
-                using (var stream = await _dockerClient.Exec.StartAndAttachContainerExecAsync(exec.ID, false))
-                {
-                    var inputBytes = Encoding.UTF8.GetBytes(test.In + "\n");
-                    await stream.WriteAsync(inputBytes, 0, inputBytes.Length, CancellationToken.None);
-                    var (stdout, stderr) = await stream.ReadOutputToEndAsync(CancellationToken.None);
-                    if (stderr != null)
-                    {
-                        _logger.LogInformation("Stderr: {stderr}", stderr);
-                        _logger.LogInformation("Stdout: {stdout}", stdout);;
-                    }
-                    if (string.IsNullOrWhiteSpace(stderr) && stdout.Trim() == test.Out.Trim())
-                    {
-                        result.PassedTests++;
-                    }
-                    else
-                    {
-                        result.FailedTests++;
-                        _logger.LogInformation("Test {test} failed", test);
-                    }
-                }
-            }
+                CorrelationId = request.CorrelationId,
+                PackageId = request.PackageId,
+                PassedTests = results.Count(r => r == true),
+                FailedTests = results.Count(r => r == false)
+            };
         }
         finally
         {
             await _dockerClient.Containers.RemoveContainerAsync(containerId,
-                new ContainerRemoveParameters { Force = true });
+                new ContainerRemoveParameters { Force = true }, ct);
         }
-        return result;
     }
 
-    private async Task EnsureDockerImageExist(string dockerImage)
+    private async Task<bool> RunSingleTestWithSemaphoreAsync(string containerId, string command, TestModel test, CancellationToken ct)
     {
+        await _testSemaphore.WaitAsync(ct);
         try
         {
-            var images = await _dockerClient.Images.ListImagesAsync(new ImagesListParameters
+            var execParams = new ContainerExecCreateParameters
             {
-                Filters = new Dictionary<string, IDictionary<string, bool>>
-                {
-                    { "reference", new Dictionary<string, bool> { { dockerImage, true } } }
-                }
-            });
+                AttachStdin = true,
+                AttachStdout = true,
+                AttachStderr = true,
+                Cmd = new List<string> { "sh", "-c", command }
+            };
 
-            if (images.Count == 0)
+            var exec = await _dockerClient.Exec.ExecCreateContainerAsync(containerId, execParams, ct);
+            
+            using var stream = await _dockerClient.Exec.StartAndAttachContainerExecAsync(exec.ID, false, ct);
+            
+            var inputBytes = Encoding.UTF8.GetBytes(test.In + "\n");
+            await stream.WriteAsync(inputBytes, 0, inputBytes.Length, ct);
+
+            var (stdout, stderr) = await stream.ReadOutputToEndAsync(ct);
+
+            if (!string.IsNullOrWhiteSpace(stderr))
             {
-                _logger.LogInformation("Docker image not found, pulling");
-                await _dockerClient.Images.CreateImageAsync(new ImagesCreateParameters
-                {
-                    FromImage = dockerImage.Split(':')[0],
-                    Tag = dockerImage.Contains(":") ? dockerImage.Split(':')[1] : "latest"
-                }, null, new Progress<JSONMessage>());
-                _logger.LogInformation("Docker image found, pulling succeeded");
+                _logger.LogWarning("Error: {stderr}", stderr);
             }
-            else
-            {
-                _logger.LogInformation("Docker image found locally");
-            }
+
+            return string.IsNullOrWhiteSpace(stderr) && stdout.Trim() == test.Out.Trim();
         }
-        catch (Exception e)
+        catch (Exception ex)
         {
-            _logger.LogError(e, "Error in find docker image");
-            throw;
+            _logger.LogError(ex, "Error during single test execution");
+            return false;
+        }
+        finally
+        {
+            _testSemaphore.Release();
+        }
+    }
+
+    private (string Image, string FileName, string Command) GetLanguageSettings(string language)
+    {
+        return language.ToLower() switch
+        {
+            "python" => ("python:3.9-slim-buster", "main.py", "python /app/main.py"),
+            "csharp" => ("mcr.microsoft.com/dotnet/sdk:9.0", "Program.cs", 
+                "dotnet new console --force -n app > /dev/null && mv /app/Program.cs app/Program.cs && dotnet run --project app/app.csproj"),
+            "java"   => ("amazoncorretto:17-alpine", "app.java", "javac /app/app.java && java -cp /app app"),
+            "cpp"    => ("gcc:latest", "main.cpp", "g++ /app/main.cpp -o main && ./main"),
+            "go"     => ("golang:latest", "main.go", "go run /app/main.go"),
+            _        => throw new NotSupportedException($"Language {language} is not supported")
+        };
+    }
+
+    private async Task EnsureDockerImageExist(string dockerImage, CancellationToken ct)
+    {
+        var images = await _dockerClient.Images.ListImagesAsync(new ImagesListParameters
+        {
+            Filters = new Dictionary<string, IDictionary<string, bool>>
+            {
+                { "reference", new Dictionary<string, bool> { { dockerImage, true } } }
+            }
+        }, ct);
+
+        if (images.Count == 0)
+        {
+            _logger.LogInformation("Pulling image: {dockerImage}", dockerImage);
+            var parts = dockerImage.Split(':');
+            await _dockerClient.Images.CreateImageAsync(new ImagesCreateParameters
+            {
+                FromImage = parts[0],
+                Tag = parts.Length > 1 ? parts[1] : "latest"
+            }, null, new Progress<JSONMessage>(), ct);
         }
     }
 
@@ -183,7 +160,7 @@ public class DockerService
         {
             var entry = new PaxTarEntry(TarEntryType.RegularFile, filename)
             {
-                DataStream = new MemoryStream(Encoding.UTF8.GetBytes(content)),
+                DataStream = new MemoryStream(Encoding.UTF8.GetBytes(content))
             };
             tarArchive.WriteEntry(entry);
         }
